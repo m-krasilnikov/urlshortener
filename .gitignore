@@ -1,4 +1,4 @@
-# Binaries for programs and plugins
+ч# Binaries for programs and plugins
 *.exe
 *.exe~
 *.dll
@@ -14,6 +14,8 @@
 # Binaries
 cmd/shortener/main
 cmd/shortener/shortener
+cmd/shortener/shortener~
+
 
 # Dependency directories (remove the comment below to include it)
 vendor/
