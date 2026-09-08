@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/m-krasilnikov/urlshortener/internal/storage"
 )
 
 const idLength = 8
@@ -19,12 +18,12 @@ type URLStorage interface {
 }
 
 type Handler struct {
-	storage storage.URLStorage
+	storage URLStorage
 	baseURL string
 }
 
 func New(
-	storage storage.URLStorage,
+	storage URLStorage,
 	baseURL string,
 ) *Handler {
 	return &Handler{
