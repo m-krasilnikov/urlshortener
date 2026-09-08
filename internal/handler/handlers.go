@@ -3,23 +3,28 @@ package handler
 import (
 	"fmt"
 	"io"
-	"log"
 	"math/rand"
 	"net/http"
 	"strings"
 
+	"github.com/gorilla/mux"
 	"github.com/m-krasilnikov/urlshortener/internal/storage"
 )
 
 const idLength = 8
 
+type URLStorage interface {
+	Save(id, url string)
+	Get(id string) (string, bool)
+}
+
 type Handler struct {
-	storage *storage.MemoryStorage
+	storage storage.URLStorage
 	baseURL string
 }
 
 func New(
-	storage *storage.MemoryStorage,
+	storage storage.URLStorage,
 	baseURL string,
 ) *Handler {
 	return &Handler{
@@ -30,8 +35,6 @@ func New(
 
 func (h *Handler) CreateShortURL(w http.ResponseWriter, r *http.Request) {
 	// Нас интересует только POST /
-	log.Println(">>> CreateShortURL ENTER")
-
 	if r.Method != http.MethodPost || r.URL.Path != "/" {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
@@ -86,20 +89,7 @@ func (h *Handler) CreateShortURL(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetOriginalURL(w http.ResponseWriter, r *http.Request) {
-	log.Println(">>> GetOriginalURL ENTER")
-	// Нас интересует только GET
-	if r.Method != http.MethodGet {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
-		return
-	}
-
-	id := strings.TrimPrefix(r.URL.Path, "/")
-
-	// ID должен присутствовать
-	if id == "" || strings.Contains(id, "/") {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
-		return
-	}
+	id := mux.Vars(r)["id"]
 
 	originalURL, ok := h.storage.Get(id)
 
@@ -108,7 +98,6 @@ func (h *Handler) GetOriginalURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 307 Temporary Redirect
 	w.Header().Set("Location", originalURL)
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
