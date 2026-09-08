@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/m-krasilnikov/urlshortener/internal/app"
+	"github.com/m-krasilnikov/urlshortener/internal/storage"
 )
 
 func TestCreateShortURL(t *testing.T) {
@@ -72,7 +73,8 @@ func TestCreateShortURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			router := app.NewRouter(baseURL)
+			st := storage.NewMemoryStorage()
+			router := app.NewRouter(st, baseURL)
 
 			req := httptest.NewRequest(
 				tt.method,
@@ -106,7 +108,8 @@ func TestCreateShortURLReturnsShortURL(t *testing.T) {
 		originalURL = "https://practicum.yandex.ru/"
 	)
 
-	router := app.NewRouter(baseURL)
+	st := storage.NewMemoryStorage()
+	router := app.NewRouter(st, baseURL)
 
 	req := httptest.NewRequest(
 		http.MethodPost,
@@ -171,7 +174,8 @@ func TestCreateShortURLReturnsShortURL(t *testing.T) {
 func TestGetOriginalURL(t *testing.T) {
 	const baseURL = "http://localhost:8081"
 
-	router := app.NewRouter(baseURL)
+	st := storage.NewMemoryStorage()
+	router := app.NewRouter(st, baseURL)
 
 	// Сначала создаём короткую ссылку.
 	originalURL := "https://practicum.yandex.ru/"
@@ -245,7 +249,9 @@ func TestGetOriginalURL(t *testing.T) {
 }
 
 func TestGetOriginalURLUnknownID(t *testing.T) {
-	router := app.NewRouter(
+
+	st := storage.NewMemoryStorage()
+	router := app.NewRouter(st,
 		"http://localhost:8081",
 	)
 
@@ -269,7 +275,8 @@ func TestGetOriginalURLUnknownID(t *testing.T) {
 }
 
 func TestInvalidRequests(t *testing.T) {
-	router := app.NewRouter(
+	st := storage.NewMemoryStorage()
+	router := app.NewRouter(st,
 		"http://localhost:8081",
 	)
 
