@@ -11,6 +11,7 @@ import (
 
 func NewRouter(storage handler.URLStorage, baseURL string) http.Handler {
 	log.Println("NewRouter started")
+
 	h := handler.New(storage, baseURL)
 
 	log.Println("Handler created")
@@ -18,6 +19,14 @@ func NewRouter(storage handler.URLStorage, baseURL string) http.Handler {
 	router := mux.NewRouter()
 
 	log.Println("mux router created")
+
+	router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+	})
+
+	router.MethodNotAllowedHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+	})
 
 	router.HandleFunc(
 		"/",
