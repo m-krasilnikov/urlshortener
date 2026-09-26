@@ -6,8 +6,9 @@ import (
 )
 
 type Config struct {
-	ServerAddress string
-	BaseURL       string
+	ServerAddress   string
+	BaseURL         string
+	FileStoragePath string
 }
 
 func New() *Config {
@@ -27,6 +28,13 @@ func New() *Config {
 		"base address for shortened URLs",
 	)
 
+	flag.StringVar(
+		&config.FileStoragePath,
+		"f",
+		"storage.json",
+		"file storage path",
+	)
+
 	flag.Parse()
 
 	if env := os.Getenv("SERVER_ADDRESS"); env != "" {
@@ -35,6 +43,10 @@ func New() *Config {
 
 	if env := os.Getenv("BASE_URL"); env != "" {
 		config.BaseURL = env
+	}
+
+	if env := os.Getenv("FILE_STORAGE_PATH"); env != "" {
+		config.FileStoragePath = env
 	}
 
 	return config

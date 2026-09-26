@@ -552,3 +552,34 @@ func TestGzipRequest(t *testing.T) {
 		t.Error("expected result to contain shortened URL")
 	}
 }
+
+func TestFileStorageRestore(t *testing.T) {
+	filePath := t.TempDir() + "/storage.json"
+
+	// Первое хранилище — сохраняем URL.
+	storage1 := storage.NewFileStorage(filePath)
+
+	storage1.Save(
+		"abc12345",
+		"https://practicum.yandex.ru/",
+	)
+
+	// Создаём новое хранилище.
+	// Имитируем перезапуск сервера.
+	storage2 := storage.NewFileStorage(filePath)
+
+	// Проверяем, что данные восстановились из файла.
+	url, ok := storage2.Get("abc12345")
+
+	if !ok {
+		t.Fatal("expected URL to be restored from file")
+	}
+
+	if url != "https://practicum.yandex.ru/" {
+		t.Fatalf(
+			"expected URL %q, got %q",
+			"https://practicum.yandex.ru/",
+			url,
+		)
+	}
+}

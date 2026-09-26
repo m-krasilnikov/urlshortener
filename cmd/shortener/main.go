@@ -14,7 +14,8 @@ import (
 
 func main() {
 	cfg := config.New()
-	st := storage.NewMemoryStorage()
+	//st := storage.NewMemoryStorage()
+	st := storage.NewFileStorage(cfg.FileStoragePath)
 
 	logger, err := zap.NewProduction()
 	if err != nil {
