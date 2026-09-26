@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -11,6 +12,57 @@ import (
 )
 
 const idLength = 8
+
+type shortenRequest struct {
+	URL string `json:"url"`
+}
+
+type shortenResponse struct {
+	Result string `json:"result"`
+}
+
+func (h *Handler) CreateShortURLJSON(w http.ResponseWriter, r *http.Request) {
+	var request shortenRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	request.URL = strings.TrimSpace(request.URL)
+
+	if request.URL == "" {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	var id string
+
+	for {
+		id = generateID()
+
+		if _, exists := h.storage.Get(id); !exists {
+			break
+		}
+	}
+
+	h.storage.Save(id, request.URL)
+
+	shortURL := fmt.Sprintf(
+		"%s/%s",
+		h.baseURL,
+		id,
+	)
+
+	response := shortenResponse{
+		Result: shortURL,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
+	_ = json.NewEncoder(w).Encode(response)
+}
 
 type URLStorage interface {
 	Save(id, url string)
@@ -67,7 +119,6 @@ func (h *Handler) CreateShortURL(w http.ResponseWriter, r *http.Request) {
 
 	for {
 		id = generateID()
-
 		if _, exists := h.storage.Get(id); !exists {
 			break
 		}
@@ -89,7 +140,6 @@ func (h *Handler) CreateShortURL(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GetOriginalURL(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-
 	originalURL, ok := h.storage.Get(id)
 
 	if !ok {

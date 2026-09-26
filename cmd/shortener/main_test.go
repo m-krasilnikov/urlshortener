@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -328,4 +329,108 @@ func TestInvalidRequests(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCreateShortURLJSON(t *testing.T) {
+	const baseURL = "http://localhost:8081"
+
+	st := storage.NewMemoryStorage()
+	router := app.NewRouter(st, baseURL)
+
+	t.Run("valid JSON", func(t *testing.T) {
+		body := `{"url":"https://practicum.yandex.ru/"}`
+
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/shorten",
+			strings.NewReader(body),
+		)
+
+		req.Header.Set(
+			"Content-Type",
+			"application/json",
+		)
+
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		// 1. Проверяем статус 201 Created.
+		if rr.Code != http.StatusCreated {
+			t.Fatalf(
+				"expected status %d, got %d",
+				http.StatusCreated,
+				rr.Code,
+			)
+		}
+
+		// 2. Проверяем Content-Type.
+		contentType := rr.Header().Get("Content-Type")
+
+		if !strings.HasPrefix(
+			contentType,
+			"application/json",
+		) {
+			t.Errorf(
+				"expected Content-Type application/json, got %q",
+				contentType,
+			)
+		}
+
+		// 3. Проверяем, что в JSON есть поле result.
+		var response struct {
+			Result string `json:"result"`
+		}
+
+		err := json.NewDecoder(rr.Body).Decode(&response)
+
+		if err != nil {
+			t.Fatalf(
+				"failed to decode JSON response: %v",
+				err,
+			)
+		}
+
+		if response.Result == "" {
+			t.Error("expected result to contain shortened URL")
+		}
+
+		prefix := baseURL + "/"
+
+		if !strings.HasPrefix(response.Result, prefix) {
+			t.Errorf(
+				"expected result to start with %q, got %q",
+				prefix,
+				response.Result,
+			)
+		}
+	})
+
+	t.Run("invalid JSON", func(t *testing.T) {
+		body := `{"url":`
+
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/shorten",
+			strings.NewReader(body),
+		)
+
+		req.Header.Set(
+			"Content-Type",
+			"application/json",
+		)
+
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		// 4. Проверяем статус 400 Bad Request.
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf(
+				"expected status %d, got %d",
+				http.StatusBadRequest,
+				rr.Code,
+			)
+		}
+	})
 }

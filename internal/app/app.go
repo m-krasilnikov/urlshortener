@@ -28,6 +28,7 @@ func NewRouter(storage handler.URLStorage, baseURL string) http.Handler {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 	})
 
+	// POST /
 	router.HandleFunc(
 		"/",
 		h.CreateShortURL,
@@ -35,6 +36,15 @@ func NewRouter(storage handler.URLStorage, baseURL string) http.Handler {
 
 	log.Println("POST route created")
 
+	// POST /api/shorten
+	router.HandleFunc(
+		"/api/shorten",
+		h.CreateShortURLJSON,
+	).Methods(http.MethodPost)
+
+	log.Println("POST /api/shorten route created")
+
+	// GET /{id}
 	router.HandleFunc(
 		"/{id}",
 		h.GetOriginalURL,
