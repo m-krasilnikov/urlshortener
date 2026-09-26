@@ -25,6 +25,7 @@ func main() {
 	router := app.NewRouter(st, cfg.BaseURL)
 
 	handler := middleware.WithLogging(logger)(router)
+	handler = middleware.WithGzip(handler)
 
 	log.Printf(
 		"server started at http://%s",

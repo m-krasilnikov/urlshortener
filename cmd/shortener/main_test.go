@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -8,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/m-krasilnikov/urlshortener/internal/app"
+	"github.com/m-krasilnikov/urlshortener/internal/middleware"
 	"github.com/m-krasilnikov/urlshortener/internal/storage"
 )
 
@@ -144,9 +147,7 @@ func TestCreateShortURLReturnsShortURL(t *testing.T) {
 		)
 	}
 
-	shortURL := strings.TrimSpace(
-		rr.Body.String(),
-	)
+	shortURL := strings.TrimSpace(rr.Body.String())
 
 	prefix := baseURL + "/"
 
@@ -158,10 +159,7 @@ func TestCreateShortURLReturnsShortURL(t *testing.T) {
 		)
 	}
 
-	id := strings.TrimPrefix(
-		shortURL,
-		prefix,
-	)
+	id := strings.TrimPrefix(shortURL, prefix)
 
 	if len(id) != 8 {
 		t.Errorf(
@@ -178,7 +176,6 @@ func TestGetOriginalURL(t *testing.T) {
 	st := storage.NewMemoryStorage()
 	router := app.NewRouter(st, baseURL)
 
-	// Сначала создаём короткую ссылку.
 	originalURL := "https://practicum.yandex.ru/"
 
 	createReq := httptest.NewRequest(
@@ -194,10 +191,7 @@ func TestGetOriginalURL(t *testing.T) {
 
 	createRR := httptest.NewRecorder()
 
-	router.ServeHTTP(
-		createRR,
-		createReq,
-	)
+	router.ServeHTTP(createRR, createReq)
 
 	if createRR.Code != http.StatusCreated {
 		t.Fatalf(
@@ -207,16 +201,13 @@ func TestGetOriginalURL(t *testing.T) {
 		)
 	}
 
-	shortURL := strings.TrimSpace(
-		createRR.Body.String(),
-	)
+	shortURL := strings.TrimSpace(createRR.Body.String())
 
 	id := strings.TrimPrefix(
 		shortURL,
 		baseURL+"/",
 	)
 
-	// Теперь проверяем GET /{id}.
 	getReq := httptest.NewRequest(
 		http.MethodGet,
 		"/"+id,
@@ -225,10 +216,7 @@ func TestGetOriginalURL(t *testing.T) {
 
 	getRR := httptest.NewRecorder()
 
-	router.ServeHTTP(
-		getRR,
-		getReq,
-	)
+	router.ServeHTTP(getRR, getReq)
 
 	if getRR.Code != http.StatusTemporaryRedirect {
 		t.Fatalf(
@@ -250,9 +238,10 @@ func TestGetOriginalURL(t *testing.T) {
 }
 
 func TestGetOriginalURLUnknownID(t *testing.T) {
-
 	st := storage.NewMemoryStorage()
-	router := app.NewRouter(st,
+
+	router := app.NewRouter(
+		st,
 		"http://localhost:8081",
 	)
 
@@ -277,7 +266,9 @@ func TestGetOriginalURLUnknownID(t *testing.T) {
 
 func TestInvalidRequests(t *testing.T) {
 	st := storage.NewMemoryStorage()
-	router := app.NewRouter(st,
+
+	router := app.NewRouter(
+		st,
 		"http://localhost:8081",
 	)
 
@@ -355,7 +346,6 @@ func TestCreateShortURLJSON(t *testing.T) {
 
 		router.ServeHTTP(rr, req)
 
-		// 1. Проверяем статус 201 Created.
 		if rr.Code != http.StatusCreated {
 			t.Fatalf(
 				"expected status %d, got %d",
@@ -364,7 +354,6 @@ func TestCreateShortURLJSON(t *testing.T) {
 			)
 		}
 
-		// 2. Проверяем Content-Type.
 		contentType := rr.Header().Get("Content-Type")
 
 		if !strings.HasPrefix(
@@ -377,7 +366,6 @@ func TestCreateShortURLJSON(t *testing.T) {
 			)
 		}
 
-		// 3. Проверяем, что в JSON есть поле result.
 		var response struct {
 			Result string `json:"result"`
 		}
@@ -424,13 +412,143 @@ func TestCreateShortURLJSON(t *testing.T) {
 
 		router.ServeHTTP(rr, req)
 
-		// 4. Проверяем статус 400 Bad Request.
 		if rr.Code != http.StatusBadRequest {
-			t.Errorf(
+			t.Fatalf(
 				"expected status %d, got %d",
 				http.StatusBadRequest,
 				rr.Code,
 			)
 		}
 	})
+}
+
+func TestGzipResponse(t *testing.T) {
+	const baseURL = "http://localhost:8081"
+
+	st := storage.NewMemoryStorage()
+	router := app.NewRouter(st, baseURL)
+
+	router = middleware.WithGzip(router)
+
+	body := `{"url":"https://practicum.yandex.ru/"}`
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/shorten",
+		strings.NewReader(body),
+	)
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip")
+
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf(
+			"expected status %d, got %d",
+			http.StatusCreated,
+			rr.Code,
+		)
+	}
+
+	if rr.Header().Get("Content-Encoding") != "gzip" {
+		t.Fatalf(
+			"expected Content-Encoding gzip, got %q",
+			rr.Header().Get("Content-Encoding"),
+		)
+	}
+
+	reader, err := gzip.NewReader(rr.Body)
+	if err != nil {
+		t.Fatalf(
+			"failed to create gzip reader: %v",
+			err,
+		)
+	}
+	defer reader.Close()
+
+	var response struct {
+		Result string `json:"result"`
+	}
+
+	if err := json.NewDecoder(reader).Decode(&response); err != nil {
+		t.Fatalf(
+			"failed to decode gzip response: %v",
+			err,
+		)
+	}
+
+	if response.Result == "" {
+		t.Error("expected result to contain shortened URL")
+	}
+}
+func TestGzipRequest(t *testing.T) {
+	const baseURL = "http://localhost:8081"
+
+	st := storage.NewMemoryStorage()
+	router := app.NewRouter(st, baseURL)
+
+	router = middleware.WithGzip(router)
+
+	body := `{"url":"https://practicum.yandex.ru/"}`
+
+	// Сжимаем JSON перед отправкой запроса.
+	var compressedBody bytes.Buffer
+
+	gzipWriter := gzip.NewWriter(&compressedBody)
+
+	if _, err := gzipWriter.Write([]byte(body)); err != nil {
+		t.Fatalf(
+			"failed to gzip request body: %v",
+			err,
+		)
+	}
+
+	if err := gzipWriter.Close(); err != nil {
+		t.Fatalf(
+			"failed to close gzip writer: %v",
+			err,
+		)
+	}
+
+	// Создаём запрос со сжатым телом.
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/shorten",
+		&compressedBody,
+	)
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "gzip")
+
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	// Handler должен успешно обработать распакованный JSON.
+	if rr.Code != http.StatusCreated {
+		t.Fatalf(
+			"expected status %d, got %d",
+			http.StatusCreated,
+			rr.Code,
+		)
+	}
+
+	// Проверяем JSON-ответ.
+	var response struct {
+		Result string `json:"result"`
+	}
+
+	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+		t.Fatalf(
+			"failed to decode JSON response: %v",
+			err,
+		)
+	}
+
+	if response.Result == "" {
+		t.Error("expected result to contain shortened URL")
+	}
 }

@@ -16,15 +16,12 @@ func NewMemoryStorage() *MemoryStorage {
 func (s *MemoryStorage) Save(id, url string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	s.data[id] = url
 }
 
 func (s *MemoryStorage) Get(id string) (string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-
 	url, ok := s.data[id]
-
 	return url, ok
 }
